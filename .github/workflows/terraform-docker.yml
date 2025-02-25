@@ -1,0 +1,70 @@
+name: Reusable Terraform & Docker Deployment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      DOCKER_USERNAME:
+        required: true
+      DOCKER_PASSWORD:
+        required: true
+
+jobs:
+  terraform-deploy:
+    name: Deploy Infrastructure with Terraform
+    runs-on: self-hosted  # Can be changed to 'ubuntu-latest'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0  # Adjust as needed
+
+      - name: Initialize Terraform
+        run: terraform init
+
+      - name: Validate Terraform Configuration
+        run: terraform validate
+
+      - name: Plan Terraform Deployment
+        run: terraform plan -var="env=${{ inputs.environment }}"
+
+      - name: Apply Terraform Configuration
+        run: terraform apply -auto-approve -var="env=${{ inputs.environment }}"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  docker-deploy:
+    name: Build & Push Docker Image
+    needs: terraform-deploy  # Ensures Terraform runs first
+    runs-on: self-hosted  # Can be changed to 'ubuntu-latest'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Build and Push Docker Image
+        run: |
+          docker build -t myapp:${{ inputs.environment }} .
+          docker tag myapp:${{ inputs.environment }} mydockerhub/myapp:${{ inputs.environment }}
+          docker push mydockerhub/myapp:${{ inputs.environment }}
+
+      - name: Logout from Docker Hub
+        run: docker logout
