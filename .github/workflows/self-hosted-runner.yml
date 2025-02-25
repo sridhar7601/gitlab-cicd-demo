@@ -1,0 +1,26 @@
+name: Self-Hosted Runner Test
+
+on:
+  push:
+    branches:
+      - main  # Runs when code is pushed to main branch
+
+jobs:
+  test-runner:
+    runs-on: self-hosted  # Use your self-hosted runner
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Print Runner Details
+        run: |
+          echo "Running on $(uname -a)"
+          echo "Current Directory: $(pwd)"
+          echo "Listing files:"
+          ls -la
+
+      - name: Run a sample script
+        run: |
+          echo "Hello from Self-Hosted Runner!"
+          echo "This is a test job running on your EC2 instance."
